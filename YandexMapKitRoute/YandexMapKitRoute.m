@@ -41,59 +41,70 @@
     return returnString;
 }
 
-+ (YandexMapKitRoute *) showRouteOnMap:(YMKMapView *)mapView From:(YMKMapCoordinate) coordinateFrom To: (YMKMapCoordinate) coordinateTo{
++ (void)showRouteOnMap:(YMKMapView *)mapView
+                  from:(YMKMapCoordinate)coordinateFrom
+                    to:(YMKMapCoordinate)coordinateTo
+                action:(YandexMapKitRouteBlock)action
+{
     YandexMapKitRoute* returnRoute;
-    @try {
-        for (UIView * view in ((UIScrollView<UIScrollViewDelegate> *) [mapView.subviews objectAtIndex:1]).subviews) {
-            if([view isKindOfClass:[YandexMapKitRoute class]]){
-                returnRoute=(YandexMapKitRoute *)view;
+    
+    for (UIView * view in ((UIScrollView<UIScrollViewDelegate> *) [mapView.subviews objectAtIndex:1]).subviews) {
+        if([view isKindOfClass:[YandexMapKitRoute class]]){
+            returnRoute=(YandexMapKitRoute *)view;
+        }
+    }
+
+    if(returnRoute==nil){
+        //Create new View
+        returnRoute = [[YandexMapKitRoute alloc] initWithFrame:(CGRect){0,0,mapView.frame.size}];
+        //Get UIScrollView
+        returnRoute.YXScrollView = (UIScrollView<UIScrollViewDelegate> *) [mapView.subviews objectAtIndex:1];
+        //Insert RouteView
+        [returnRoute.YXScrollView addSubview:returnRoute];
+        returnRoute.YMKMapViewInternal = mapView;
+
+        //Set proxy delegate to handle events
+        YandexMapKitRouteDelegate * delegate=[[YandexMapKitRouteDelegate alloc] init];
+        if(mapView.delegate!=nil)
+            delegate.oldDelegate=mapView.delegate;
+        delegate.mapView=mapView;
+        mapView.delegate=nil;
+        mapView.delegate=delegate;
+
+        //Setting properties of Route view
+        [returnRoute setBackgroundColor:[UIColor clearColor]];
+        [returnRoute setUserInteractionEnabled:NO];
+
+        delegate.route=returnRoute;
+        returnRoute.delegate= delegate;
+    }
+
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        @try {
+            NSString * routeString=[YandexMapKitRoute getRouteStringFrom:coordinateFrom To:coordinateTo];
+            if(routeString==nil)
+            {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    action(nil);
+                    return;
+                });
             }
+            
+            returnRoute.geoPointArray = [YandexMapKitRoute parseData:[YandexBase64 decode:routeString]];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                CGRect frame=returnRoute.frame;
+                frame.origin=returnRoute.YXScrollView.contentOffset;
+                returnRoute.frame=frame;
+                [returnRoute setNeedsDisplay];
+                action(returnRoute);
+            });
         }
-
-        if(returnRoute==nil){
-            //Create new View
-            returnRoute = [[YandexMapKitRoute alloc] initWithFrame:(CGRect){0,0,mapView.frame.size}];
-            //Get UIScrollView
-            returnRoute.YXScrollView = (UIScrollView<UIScrollViewDelegate> *) [mapView.subviews objectAtIndex:1];
-            //Insert RouteView
-            [returnRoute.YXScrollView addSubview:returnRoute];
-            returnRoute.YMKMapViewInternal = mapView;
-
-            //Set proxy delegate to handle events
-            YandexMapKitRouteDelegate * delegate=[[YandexMapKitRouteDelegate alloc] init];
-            if(mapView.delegate!=nil)
-                delegate.oldDelegate=mapView.delegate;
-            delegate.mapView=mapView;
-            mapView.delegate=nil;
-            mapView.delegate=delegate;
-
-            //Setting properties of Route view
-            [returnRoute setBackgroundColor:[UIColor clearColor]];
-            [returnRoute setUserInteractionEnabled:NO];
-
-            delegate.route=returnRoute;
-            returnRoute.delegate= delegate;
+        @catch (NSException *exception) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                action(nil);
+            });
         }
-
-        NSString * routeString=[YandexMapKitRoute getRouteStringFrom:coordinateFrom To:coordinateTo];
-        if(routeString==nil)
-            return nil;
-        returnRoute.geoPointArray = [YandexMapKitRoute parseData:[YandexBase64 decode:routeString]];
-
-
-
-        CGRect frame=returnRoute.frame;
-        frame.origin=returnRoute.YXScrollView.contentOffset;
-        returnRoute.frame=frame;
-        [returnRoute setNeedsDisplay];
-
-    }
-    @catch (NSException *exception) {
-        NSLog(@"Can't show route");
-    }
-    @finally {
-        return returnRoute;
-    }
+    });
 }
 
 - (void) drawRect:(CGRect)rect{

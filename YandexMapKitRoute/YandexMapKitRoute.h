@@ -9,6 +9,8 @@
 #import <Foundation/Foundation.h>
 #import "YandexMapKit.h"
 
+@class YandexMapKitRoute;
+typedef void(^YandexMapKitRouteBlock)(YandexMapKitRoute *route);
 
 @class YandexMapKitRouteDelegate;
 
@@ -27,5 +29,9 @@
 @property (nonatomic) UIScrollView<UIScrollViewDelegate> * YXScrollView;
 @property (nonatomic) YandexMapKitRouteDelegate * delegate;
 @property (nonatomic) NSArray * geoPointArray;
-+ (YandexMapKitRoute *) showRouteOnMap:(YMKMapView *)mapView From:(YMKMapCoordinate) coordinateFrom To: (YMKMapCoordinate) coordinateTo;
+
++ (void)showRouteOnMap:(YMKMapView *)mapView
+                  from:(YMKMapCoordinate)coordinateFrom
+                    to:(YMKMapCoordinate)coordinateTo
+                action:(YandexMapKitRouteBlock)action;
 @end
